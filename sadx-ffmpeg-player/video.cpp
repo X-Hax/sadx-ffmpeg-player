@@ -1,3 +1,6 @@
+// TODO: Choppy timing/audio, cleanup
+// The Mod Loader stuff can be removed completely but that will also get rid of PrintDebug which is useful atm
+
 #include "stdafx.h"
 #include <DShow.h>
 #include <chrono>
@@ -57,15 +60,9 @@ private:
 			return;
 		}
 
-		char buf[200];
-
-		int err = swr_convert_frame(pSwrContext, pAudioFrame, pFrame);
-		if (err < -1)
+		if (swr_convert_frame(pSwrContext, pAudioFrame, pFrame) < 0)
 		{
-			av_strerror(err, buf, 200);
-			PrintDebug("[video] Failed to convert audio frame: %s\n", buf);
-			PrintDebug("pAudioFrame: %d, %d, %d, %d\n", pAudioFrame->ch_layout.nb_channels, pAudioFrame->ch_layout.order, pAudioFrame->ch_layout.u, pAudioFrame->ch_layout.opaque);
-			PrintDebug("pFrame: %d, %d, %d, %d\n", pFrame->ch_layout.nb_channels, pFrame->ch_layout.order, pFrame->ch_layout.u, pFrame->ch_layout.opaque);
+			PrintDebug("[video] Failed to convert audio frame.\n");
 			return;
 		}
 		
