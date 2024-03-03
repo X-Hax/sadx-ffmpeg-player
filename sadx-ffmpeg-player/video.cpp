@@ -1,10 +1,11 @@
-// TODO: Choppy timing/audio, cleanup
+// TODO: Improve prerendering (ditch vectors, second thread, preallocate buffers)
 // The Mod Loader stuff can be removed completely but that will also get rid of PrintDebug which is useful atm
 
 #include "stdafx.h"
 #include <DShow.h>
 #include <chrono>
 #include <thread>
+#include <vector>
 #include "bass_vgmstream.h"
 #include "sadx-ffmpeg-player.h"
 
@@ -46,7 +47,18 @@ private:
 	bool finished = false;
 	bool update = false;
 
-	double time = 0.0;
+	std::chrono::steady_clock::time_point real_time;
+	double video_time = 0.0;
+	double next = 0.0;
+
+	struct Frame
+	{
+		double video_time;
+		uint8_t* data;
+		size_t size;
+	};
+
+	std::vector<Frame> video_frames;
 
 	void DecodeAudio(AVStream* pStream)
 	{
@@ -96,22 +108,22 @@ private:
 			pVideoFrame->data,
 			pVideoFrame->linesize);
 
-		double new_time = pFrame->best_effort_timestamp * av_q2d(pStream->time_base);
-		double wait = new_time - time;
-		time = new_time;
+		size_t size = width * height * 4;
+		auto data = (uint8_t*)malloc(size);
+		memcpy(data, pVideoFrame->data[0], size);
 
-		std::chrono::time_point<std::chrono::system_clock> t = std::chrono::system_clock::now();
-		t += std::chrono::milliseconds((int)(wait * 1000.0));
-		std::this_thread::sleep_until(t);
+		Frame frame;
+		frame.video_time = pFrame->best_effort_timestamp * av_q2d(pStream->time_base);
+		frame.size = size;
+		frame.data = data;
 
-		update = false;
-		memcpy(framebuffer, pVideoFrame->data[0], width * height * 4);
-		update = true;
+		video_frames.push_back(frame);
 	}
 
 	void Decode()
 	{
-		while (1)
+		// Queue frames
+		if (video_frames.size() < 5)
 		{
 			int ret = av_read_frame(pFormatContext, pPacket);
 
@@ -119,41 +131,64 @@ private:
 			{
 				if (ret == AVERROR_EOF)
 				{
-					finished = true;
+					finished = true; // TODO: wait until queue has been rendered
 				}
-				break;
 			}
-			
+
 			if (pPacket->stream_index == video_stream_index)
 			{
 				DecodeVideo(pFormatContext->streams[video_stream_index]);
-				av_packet_unref(pPacket);
-				break;
 			}
-
-			if (pPacket->stream_index == audio_stream_index)
+			else if (pPacket->stream_index == audio_stream_index)
 			{
 				DecodeAudio(pFormatContext->streams[audio_stream_index]);
-				av_packet_unref(pPacket);
-				break;
 			}
 
 			av_packet_unref(pPacket);
+		}
+
+		// Run video (TODO: different thread)
+		if (video_frames.size())
+		{
+			if (video_time >= video_frames[0].video_time)
+			{
+				update = false;
+				memcpy(framebuffer, video_frames[0].data, video_frames[0].size);
+				update = true;
+
+				free(video_frames[0].data);
+				video_frames.erase(video_frames.begin());
+			}
+		}
+	}
+
+	void m_VideoThread()
+	{
+		while (1)
+		{
+			auto now = std::chrono::steady_clock::now();
+			auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - real_time);
+
+			if (!opened)
+				break;
+
+			if (elapsed.count() == 0)
+				continue;
+
+			real_time = now;
+
+			if (!play || finished)
+				continue;
+
+			video_time += (double)elapsed.count() * 0.001;
+
+			Decode();
 		}
 	}
 
 	static void VideoThread(VideoPlayer* _this)
 	{
-		while (1)
-		{
-			if (!_this->opened)
-				break;
-
-			if (!_this->play || _this->finished)
-				continue;
-
-			_this->Decode();
-		}
+		_this->m_VideoThread();
 	}
 
 public:
@@ -186,11 +221,19 @@ public:
 	void Play()
 	{
 		play = true;
+		if (BassHandle)
+		{
+			BASS_ChannelPlay(BassHandle, FALSE);
+		}
 	}
 
 	void Pause()
 	{
 		play = false;
+		if (BassHandle)
+		{
+			BASS_ChannelStop(BassHandle);
+		}
 	}
 
 	bool Open(const char* path, bool sfd)
@@ -367,9 +410,10 @@ public:
 			BASS_ChannelPlay(BassHandle, FALSE);
 		}
 
-		time = pVideoStream->start_time * av_q2d(pVideoStream->time_base);
+		video_time = pVideoStream->start_time * av_q2d(pVideoStream->time_base);
 		opened = true;
 
+		real_time = std::chrono::steady_clock::now();
 		pVideoThread = new std::thread(VideoThread, this);
 		return true;
 	}
