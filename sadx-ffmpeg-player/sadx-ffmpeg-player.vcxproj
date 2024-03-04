@@ -63,7 +63,7 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(ProgramFiles)\DirectX 8.1 SDK\lib;..\extlib\ffmpeg\lib;..\extlib\bass;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>bass.lib;bass_vgmstream.lib;avcodec.lib;avformat.lib;avutil.lib;swscale.lib;swresample.lib;$(OutDir)libmodutils.lib;$(OutDir)ModLoaderCommon.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>bass.lib;bass_vgmstream.lib;avcodec.lib;avformat.lib;avutil.lib;swscale.lib;swresample.lib;$(OutDir)ModLoaderCommon.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
       <DelayLoadDLLs>
       </DelayLoadDLLs>
@@ -88,7 +88,7 @@
       <DelayLoadDLLs>
       </DelayLoadDLLs>
       <AdditionalLibraryDirectories>$(ProgramFiles)\DirectX 8.1 SDK\lib;..\extlib\ffmpeg\lib;..\extlib\bass;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>bass.lib;bass_vgmstream.lib;avcodec.lib;avformat.lib;avutil.lib;swscale.lib;swresample.lib;$(OutDir)libmodutils.lib;$(OutDir)ModLoaderCommon.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>bass.lib;bass_vgmstream.lib;avcodec.lib;avformat.lib;avutil.lib;swscale.lib;swresample.lib;$(OutDir)ModLoaderCommon.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
   </ItemDefinitionGroup>
